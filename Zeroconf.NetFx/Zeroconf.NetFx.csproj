@@ -38,17 +38,19 @@
     <Reference Include="System.Core" />
     <Reference Include="System.IO" />
     <Reference Include="System.Xml.Linq" />
-    <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="Microsoft.CSharp" />
-    <Reference Include="System.Data" />
-    <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="..\Zeroconf.DotNetCore\NetworkInterface.cs">
+      <Link>NetworkInterface.cs</Link>
+    </Compile>
     <Compile Include="..\Zeroconf.RT\Properties\SharedAssemblyInfo.cs">
       <Link>Properties\SharedAssemblyInfo.cs</Link>
     </Compile>
-    <Compile Include="NetworkInterface.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="project.json" />
   </ItemGroup>
   <Import Project="..\Zeroconf.Shared\Zeroconf.Shared.projitems" Label="Shared" Condition="Exists('..\Zeroconf.Shared\Zeroconf.Shared.projitems')" />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

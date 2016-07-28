@@ -1,13 +1,10 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace Zeroconf
 {
-    internal interface INetworkInterface
+    interface INetworkInterface
     {
         Task NetworkRequestAsync(byte[] requestBytes,
                                  TimeSpan scanTime,
@@ -15,5 +12,7 @@ namespace Zeroconf
                                  int retryDelayMilliseconds,
                                  Action<string, byte[]> onResponse,
                                  CancellationToken cancellationToken);
+
+        Task ListenForAnnouncementsAsync(Action<AdapterInformation, string, byte[]> callback, CancellationToken cancellationToken);
     }
 }

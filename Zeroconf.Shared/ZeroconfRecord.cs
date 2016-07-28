@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading.Tasks;
 
 namespace Zeroconf
 {
@@ -11,6 +12,11 @@ namespace Zeroconf
     public interface IZeroconfHost
     {
         /// <summary>
+        ///     Name
+        /// </summary>
+        string DisplayName { get; }
+
+        /// <summary>
         ///     Id, possibly different than the Name
         /// </summary>
         string Id { get; }
@@ -19,11 +25,6 @@ namespace Zeroconf
         ///     IP Address
         /// </summary>
         string IPAddress { get; }
-
-        /// <summary>
-        ///     Name
-        /// </summary>
-        string DisplayName { get; }
 
 
         /// <summary>
@@ -57,9 +58,21 @@ namespace Zeroconf
     /// <summary>
     ///     A ZeroConf record response
     /// </summary>
-    internal class ZeroconfHost : IZeroconfHost
+    class ZeroconfHost : IZeroconfHost, IEquatable<ZeroconfHost>, IEquatable<IZeroconfHost>
     {
-        private readonly Dictionary<string, IService> _services = new Dictionary<string, IService>();
+        readonly Dictionary<string, IService> _services = new Dictionary<string, IService>();
+
+        public bool Equals(IZeroconfHost other)
+        {
+            return Equals(other as ZeroconfHost);
+        }
+
+        public bool Equals(ZeroconfHost other)
+        {
+            if (ReferenceEquals(null, other)) return false;
+            if (ReferenceEquals(this, other)) return true;
+            return string.Equals(Id, other.Id) && string.Equals(IPAddress, other.IPAddress);
+        }
 
         /// <summary>
         ///     Id, possibly different than the display name
@@ -85,12 +98,20 @@ namespace Zeroconf
         /// </summary>
         public string DisplayName { get; set; }
 
-        internal void AddService(IService service)
+        public override bool Equals(object obj)
         {
-            if (service == null)
-                throw new ArgumentNullException("service");
+            if (ReferenceEquals(null, obj)) return false;
+            if (ReferenceEquals(this, obj)) return true;
+            if (obj.GetType() != GetType()) return false;
+            return Equals((ZeroconfHost)obj);
+        }
 
-            _services[service.Name] = service;
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                return ((Id != null ? Id.GetHashCode() : 0)*397) ^ (IPAddress != null ? IPAddress.GetHashCode() : 0);
+            }
         }
 
         /// <summary>
@@ -113,11 +134,19 @@ namespace Zeroconf
 
             return sb.ToString();
         }
+
+        internal void AddService(IService service)
+        {
+            if (service == null)
+                throw new ArgumentNullException(nameof(service));
+
+            _services[service.Name] = service;
+        }
     }
 
-    internal class Service : IService
+    class Service : IService
     {
-        private readonly List<IReadOnlyDictionary<string, string>> _properties = new List<IReadOnlyDictionary<string, string>>();
+        readonly List<IReadOnlyDictionary<string, string>> _properties = new List<IReadOnlyDictionary<string, string>>();
 
         public string Name { get; set; }
         public int Port { get; set; }
@@ -125,14 +154,6 @@ namespace Zeroconf
         public IReadOnlyList<IReadOnlyDictionary<string, string>> Properties
         {
             get { return _properties; }
-        }
-
-        internal void AddPropertySet(IReadOnlyDictionary<string, string> set)
-        {
-            if (set == null)
-                throw new ArgumentNullException("set");
-
-            _properties.Add(set);
         }
 
         public override string ToString()
@@ -160,6 +181,14 @@ namespace Zeroconf
             }
 
             return sb.ToString();
+        }
+
+        internal void AddPropertySet(IReadOnlyDictionary<string, string> set)
+        {
+            if (set == null)
+                throw new ArgumentNullException(nameof(set));
+
+            _properties.Add(set);
         }
     }
 }

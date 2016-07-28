@@ -2,25 +2,23 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using System.Text;
+using System.Reactive.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Heijden.DNS;
-using DnsType = Heijden.DNS.Type;
-
 
 namespace Zeroconf
 {
     /// <summary>
     ///     Looks for ZeroConf devices
     /// </summary>
-    public static class ZeroconfResolver
+    public static partial class ZeroconfResolver
     {
-        private static readonly AsyncLock ResolverLock = new AsyncLock();
+        static readonly AsyncLock ResolverLock = new AsyncLock();
 
-        private static readonly INetworkInterface NetworkInterface = LoadPlatformNetworkInterface();
+        static readonly INetworkInterface NetworkInterface = LoadPlatformNetworkInterface();
 
-        private static INetworkInterface LoadPlatformNetworkInterface()
+        static INetworkInterface LoadPlatformNetworkInterface()
         {
 #if PCL
             throw new NotSupportedException("This PCL assembly must not be used at runtime. Make sure to add the Zeroconf Nuget reference to your main project.");
@@ -29,127 +27,17 @@ namespace Zeroconf
 #endif
         }
 
-        /// <summary>
-        ///     Resolves available ZeroConf services
-        /// </summary>
-        /// <param name="scanTime">Default is 2 seconds</param>
-        /// <param name="cancellationToken"></param>
-        /// <param name="protocol"></param>
-        /// <param name="retries">If the socket is busy, the number of times the resolver should retry</param>
-        /// <param name="retryDelayMilliseconds">The delay time between retries</param>
-        /// <param name="callback">Called per record returned as they come in.</param>
-        /// <returns></returns>
-        public static Task<IReadOnlyList<IZeroconfHost>> ResolveAsync(string protocol,
-                                                                      TimeSpan scanTime = default (TimeSpan),
-                                                                      int retries = 2,
-                                                                      int retryDelayMilliseconds = 2000,
-                                                                      Action<IZeroconfHost> callback = null,
-                                                                      CancellationToken cancellationToken = default (CancellationToken))
-        {
-            if (string.IsNullOrWhiteSpace(protocol))
-                throw new ArgumentNullException("protocol");
 
-            return ResolveAsync(new[] {protocol},
-                                scanTime,
-                                retries,
-                                retryDelayMilliseconds, callback, cancellationToken);
-        }
 
-        /// <summary>
-        ///     Resolves available ZeroConf services
-        /// </summary>
-        /// <param name="scanTime">Default is 2 seconds</param>
-        /// <param name="cancellationToken"></param>
-        /// <param name="protocols"></param>
-        /// <param name="retries">If the socket is busy, the number of times the resolver should retry</param>
-        /// <param name="retryDelayMilliseconds">The delay time between retries</param>
-        /// <param name="callback">Called per record returned as they come in.</param>
-        /// <returns></returns>
-        public static async Task<IReadOnlyList<IZeroconfHost>> ResolveAsync(IEnumerable<string> protocols,
-                                                                            TimeSpan scanTime = default (TimeSpan),
-                                                                            int retries = 2,
-                                                                            int retryDelayMilliseconds = 2000,
-                                                                            Action<IZeroconfHost> callback = null,
-                                                                            CancellationToken cancellationToken = default (CancellationToken))
-        {
-            Action<string, Response> wrappedAction = null;
-            if (callback != null)
-            {
-                wrappedAction = (address, resp) =>
-                                {
-                                    var zc = ResponseToZeroconf(resp, address);
-                                    callback(zc);
-                                };
-            }
 
-            var protos = protocols.ToList(); // prevent multiple enumeration
-            var buffer = GetRequestBytes(protos);
-            var dict = await ResolveInternal(protos,
-                                             buffer,
-                                             scanTime,
-                                             retries,
-                                             retryDelayMilliseconds,
-                                             wrappedAction,
-                                             cancellationToken)
-                                 .ConfigureAwait(false);
 
-            return dict.Select(pair => ResponseToZeroconf(pair.Value, pair.Key)).ToList();
-        }
-
-        /// <summary>
-        ///     Returns all available domains with services on them
-        /// </summary>
-        /// <param name="scanTime">Default is 2 seconds</param>
-        /// <param name="cancellationToken"></param>
-        /// <param name="retries">If the socket is busy, the number of times the resolver should retry</param>
-        /// <param name="retryDelayMilliseconds">The delay time between retries</param>
-        /// <param name="callback">Called per record returned as they come in.</param>
-        /// <returns></returns>
-        public static async Task<ILookup<string, string>> BrowseDomainsAsync(TimeSpan scanTime = default (TimeSpan),
-                                                                             int retries = 2,
-                                                                             int retryDelayMilliseconds = 2000,
-                                                                             Action<string, string> callback = null,
-                                                                             CancellationToken cancellationToken = default (CancellationToken))
-        {
-            const string protocol = "_services._dns-sd._udp.local.";
-
-            Action<string, Response> wrappedAction = null;
-            if (callback != null)
-            {
-                wrappedAction = (address, response) =>
-                                {
-                                    foreach (var service in BrowseResponseParser(response))
-                                    {
-                                        callback(service, address);
-                                    }
-                                };
-            }
-
-            var protocols = new[] {protocol};
-            var buffer = GetRequestBytes(protocols);
-            var dict = await ResolveInternal(protocols,
-                                             buffer,
-                                             scanTime,
-                                             retries,
-                                             retryDelayMilliseconds,
-                                             wrappedAction,
-                                             cancellationToken)
-                                 .ConfigureAwait(false);
-
-            var r = from kvp in dict
-                    from service in BrowseResponseParser(kvp.Value)
-                    select new {Service = service, Address = kvp.Key};
-
-            return r.ToLookup(k => k.Service, k => k.Address);
-        }
-
-        private static IEnumerable<string> BrowseResponseParser(Response response)
+        static IEnumerable<string> BrowseResponseParser(Response response)
         {
             return response.RecordsPTR.Select(ptr => ptr.PTRDNAME);
         }
 
 
-        private static async Task<IDictionary<string, Response>> ResolveInternal(IEnumerable<string> protocols,
+        static async Task<IDictionary<string, Response>> ResolveInternal(IEnumerable<string> protocols,
                                                                                  byte[] requestBytes,
                                                                                  TimeSpan scanTime,
                                                                                  int retries,
@@ -165,33 +53,30 @@ namespace Zeroconf
 
                 var dict = new Dictionary<string, Response>();
 
-                Action<string, byte[]> converter = (address, buffer) =>
-                                                   {
-                                                       var resp = new Response(buffer);
-                                                       Debug.WriteLine("IP: {0}, Bytes: {1}, IsResponse: {2}",
-                                                                       address,
-                                                                       buffer.Length,
-                                                                       resp.header.QR);
+                Action<string, byte[]> converter =
+                    (address, buffer) =>
+                    {
+                        var resp = new Response(buffer);
+                        Debug.WriteLine($"IP: {address}, Bytes: {buffer.Length}, IsResponse: {resp.header.QR}");
 
-                                                       if (resp.header.QR)
-                                                       {
-                                                           lock (dict)
-                                                           {
-                                                               dict[address] = resp;
-                                                           }
+                        if (resp.header.QR)
+                        {
+                            lock (dict)
+                            {
+                                dict[address] = resp;
+                            }
 
-                                                           if (callback != null)
-                                                               callback(address, resp);
-                                                       }
-                                                   };
+                            callback?.Invoke(address, resp);
+                        }
+                    };
 
-                Debug.WriteLine("Looking for {0} with scantime {1}", string.Join(", ", protocols), scanTime);
+                Debug.WriteLine($"Looking for {string.Join(", ", protocols)} with scantime {scanTime}");
 
                 await NetworkInterface.NetworkRequestAsync(requestBytes,
                                                            scanTime,
                                                            retries,
                                                            retryDelayMilliseconds,
-                                                           converter,
+                                                           converter,                                                           
                                                            cancellationToken)
                                       .ConfigureAwait(false);
 
@@ -199,7 +84,7 @@ namespace Zeroconf
             }
         }
 
-        private static byte[] GetRequestBytes(IEnumerable<string> protocols)
+        static byte[] GetRequestBytes(IEnumerable<string> protocols)
         {
             var req = new Request();
 
@@ -213,12 +98,12 @@ namespace Zeroconf
             return req.Data;
         }
 
-        private static ZeroconfHost ResponseToZeroconf(Response response, string remoteAddress)
+        static ZeroconfHost ResponseToZeroconf(Response response, string remoteAddress)
         {
             var z = new ZeroconfHost();
 
             // Get the Id and IP address from the A record
-            var aRecord = response.Additionals
+            var aRecord = response.Answers
                                   .Select(r => r.RECORD)
                                   .OfType<RecordA>()
                                   .FirstOrDefault();
@@ -247,12 +132,12 @@ namespace Zeroconf
                 }
 
                 // Get the matching service records
-                var serviceRecords = response.Additionals
+                var responseRecords = response.RecordsRR
                                              .Where(r => r.NAME == ptrRec.PTRDNAME)
                                              .Select(r => r.RECORD)
                                              .ToList();
 
-                var srvRec = serviceRecords.OfType<RecordSRV>().FirstOrDefault();
+                var srvRec = responseRecords.OfType<RecordSRV>().FirstOrDefault();
                 if (srvRec == null)
                     continue; // Missing the SRV record, not valid
 
@@ -263,7 +148,7 @@ namespace Zeroconf
                 };
 
                 // There may be 0 or more text records - property sets
-                foreach (var txtRec in serviceRecords.OfType<RecordTXT>())
+                foreach (var txtRec in responseRecords.OfType<RecordTXT>())
                 {
                     var set = new Dictionary<string, string>();
                     foreach (var txt in txtRec.TXT)
@@ -287,5 +172,7 @@ namespace Zeroconf
 
             return z;
         }
+
+
     }
 }

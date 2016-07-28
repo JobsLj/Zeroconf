@@ -7,7 +7,7 @@ using System.Text;
 
 namespace Heijden.DNS
 {
-    internal class Response
+    class Response
 	{
 		/// <summary>
 		/// List of Question records
@@ -265,5 +265,10 @@ namespace Heijden.DNS
 				return list.ToArray();
 			}
 		}
+
+        public bool IsQueryResponse
+        {
+            get { return header.QR; }
+        }
 	}
 }

@@ -22,7 +22,7 @@ depends on the domain where it is found.
 
 namespace Heijden.DNS
 {
-    internal class RecordTXT : Record
+    class RecordTXT : Record
 	{
 		public List<string> TXT;
 
@@ -30,9 +30,14 @@ namespace Heijden.DNS
 		{
 			int pos = rr.Position;
 			TXT = new List<string>();
-			while ((rr.Position - pos) < Length)
-				TXT.Add(rr.ReadString());
-		}
+            while (
+                ((rr.Position - pos) < Length) &&
+                (rr.Position < rr.Length)
+                )
+            {
+                TXT.Add(rr.ReadString());
+            }
+        }
 
 		public override string ToString()
 		{
