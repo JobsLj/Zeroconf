@@ -1,9 +1,10 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.Linq;
 
-using MonoTouch.Foundation;
-using MonoTouch.UIKit;
+using Foundation;
+using UIKit;
 
 using Xamarin.Forms;
 using ZeroconfTest.Xam;
@@ -13,8 +14,8 @@ namespace ZeroconfTest.Xamarin.iOS
     // The UIApplicationDelegate for the application. This class is responsible for launching the 
     // User Interface of the application, as well as listening (and optionally responding) to 
     // application events from iOS.
-    [Register("AppDelegate")]
-    public partial class AppDelegate : UIApplicationDelegate
+    [Foundation.Register("AppDelegate")]
+    public class AppDelegate : UIApplicationDelegate
     {
         // class-level declarations
         UIWindow window;
@@ -26,13 +27,14 @@ namespace ZeroconfTest.Xamarin.iOS
         //
         // You have 17 seconds to return from this method, or iOS will terminate your application.
         //
-        public override bool FinishedLaunching(UIApplication app, NSDictionary options)
+        public override bool FinishedLaunching(UIApplication application, NSDictionary launchOptions)
         {
             Forms.Init();
 
-            window = new UIWindow(UIScreen.MainScreen.Bounds);
-
-            window.RootViewController = App.GetMainPage().CreateViewController();
+            window = new UIWindow((RectangleF)UIScreen.MainScreen.Bounds)
+            {
+                RootViewController = App.GetMainPage().CreateViewController()
+            };
 
             window.MakeKeyAndVisible();
 
